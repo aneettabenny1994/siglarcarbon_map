@@ -7,10 +7,28 @@ import { AlertCircle } from 'lucide-react';
 import { SchemeTooltip } from './SchemeTooltip';
 import { EmissionScheme } from '../types/scheme';
 import { ensurePolygonGeometry, calculateIconPosition } from '../utils/schemeGeometry';
+import europeGeo from '../../europe.json'; 
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 if (MAPBOX_TOKEN) {
   mapboxgl.accessToken = MAPBOX_TOKEN;
+}
+
+// Compute bounding box for a GeoJSON
+function getGeoBounds(geo: any) {
+  const coords = geo.features.flatMap((f: any) =>
+    f.geometry.coordinates.flat(2)
+  );
+  const lats = coords.map((c: number[]) => c[1]);
+  const lngs = coords.map((c: number[]) => c[0]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat]
+  ] as [[number, number], [number, number]];
 }
 
 export const MapView = () => {
@@ -23,14 +41,15 @@ export const MapView = () => {
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const { schemes, filters, selectScheme, selectedSchemeId } = useSchemeStore();
 
-  const filteredSchemes = useMemo(() =>
-    filterSchemes(schemes, filters),
+  // --- Filter schemes normally ---
+  const filteredSchemes = useMemo(
+    () => filterSchemes(schemes, filters),
     [schemes, filters]
   );
 
+  // --- Initialize Map ---
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
-
     if (!MAPBOX_TOKEN) {
       setMapError('Mapbox token not configured. Please add VITE_MAPBOX_TOKEN to your .env file.');
       return;
@@ -48,26 +67,37 @@ export const MapView = () => {
 
     map.current.on('load', () => {
       if (!map.current) return;
-
-      console.log('MapView: Map loaded and ready');
       setMapLoaded(true);
 
+      // Sources
       map.current.addSource('schemes-polygons', {
         type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: []
-        }
+        data: { type: 'FeatureCollection', features: [] }
       });
-
       map.current.addSource('schemes-icons', {
         type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: []
-        }
+        data: { type: 'FeatureCollection', features: [] }
       });
 
+      // Europe outline (added once)
+      map.current.addSource('highlight-europe', {
+        type: 'geojson',
+        data: europeGeo
+      });
+
+      map.current.addLayer({
+        id: 'highlight-europe',
+        type: 'line',
+        source: 'highlight-europe',
+        paint: {
+          'line-color': '#003f5c',
+          'line-width': 1.5,
+          'line-opacity': 0.3
+        },
+        layout: { visibility: 'none' }
+      });
+
+      // Fill layer
       map.current.addLayer({
         id: 'schemes-fill',
         type: 'fill',
@@ -85,49 +115,28 @@ export const MapView = () => {
             'case',
             ['boolean', ['feature-state', 'hover'], false],
             0.7,
-            [
-              'case',
-              ['==', ['get', 'scope_region'], 'Global'],
-              0.15,
-              0.3
-            ]
+            0.3
           ]
         }
       });
 
+      // Outline layer
       map.current.addLayer({
         id: 'schemes-outline',
         type: 'line',
         source: 'schemes-polygons',
         paint: {
-          'line-color': [
-            'match',
-            ['get', 'scope_status'],
-            'Active', '#002b45',
-            'Upcoming', '#1f3c5c',
-            'Under discussion', '#cc8400',
-            '#4F4F4F'
-          ],
+          'line-color': '#333333',
           'line-width': [
             'case',
             ['boolean', ['feature-state', 'hover'], false],
             3,
-            2
-          ],
-          'line-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            1,
-            [
-              'case',
-              ['==', ['get', 'scope_region'], 'Global'],
-              0.4,
-              0.8
-            ]
+            1.5
           ]
         }
       });
 
+      // Icons layer
       map.current.addLayer({
         id: 'schemes-icons',
         type: 'circle',
@@ -142,244 +151,143 @@ export const MapView = () => {
             '#cccccc'
           ],
           'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
+            'interpolate', ['linear'], ['zoom'],
             2, 6,
             10, 10,
             15, 14
           ],
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            1,
-            0.9
-          ]
+          'circle-stroke-color': '#fff'
         }
       });
 
+      // Hover + click handlers (same as before)
       map.current.on('click', 'schemes-icons', (e) => {
         if (!e.features || e.features.length === 0) return;
-
-        const clickedFeature = e.features[0];
-        const clickedSchemeId = clickedFeature.properties?.id;
-
-        const clickedIconPosition = clickedFeature.geometry.type === 'Point'
-          ? clickedFeature.geometry.coordinates as [number, number]
-          : null;
-
-        if (!clickedIconPosition) return;
-
-        const allFeaturesAtPoint = map.current!.queryRenderedFeatures(e.point, {
-          layers: ['schemes-icons']
-        });
-
-        const schemeIds = allFeaturesAtPoint
-          .map(f => f.properties?.id)
-          .filter((id, index, self) => id && self.indexOf(id) === index);
-
+        const ids = e.features.map(f => f.properties?.id);
         const currentSchemes = useSchemeStore.getState().schemes;
-        console.log('MapView: Click handler - currentSchemes length:', currentSchemes.length);
-        console.log('MapView: Click handler - schemeIds found:', schemeIds);
-
-        const clickedSchemes = schemeIds
+        const clickedSchemes = ids
           .map(id => currentSchemes.find(s => s.id === id))
-          .filter((s): s is EmissionScheme => s !== undefined);
-
-        console.log('MapView: Click handler - clickedSchemes:', clickedSchemes);
-
+          .filter((s): s is EmissionScheme => !!s);
         setTooltipSchemes(clickedSchemes);
         setTooltipPosition({ x: e.point.x, y: e.point.y });
       });
 
       map.current.on('mouseenter', 'schemes-icons', (e) => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'pointer';
-        }
-
-        if (e.features && e.features.length > 0) {
-          const schemeId = e.features[0].properties?.id;
-          setHoveredSchemeId(schemeId);
-
-          if (schemeId) {
-            map.current!.setFeatureState(
-              { source: 'schemes-polygons', id: schemeId },
-              { hover: true }
-            );
-            map.current!.setFeatureState(
-              { source: 'schemes-icons', id: schemeId },
-              { hover: true }
-            );
-          }
+        map.current!.getCanvas().style.cursor = 'pointer';
+        const id = e.features?.[0]?.properties?.id;
+        setHoveredSchemeId(id);
+        if (id) {
+          map.current!.setFeatureState({ source: 'schemes-polygons', id }, { hover: true });
+          map.current!.setFeatureState({ source: 'schemes-icons', id }, { hover: true });
         }
       });
 
       map.current.on('mouseleave', 'schemes-icons', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = '';
-        }
-
+        map.current!.getCanvas().style.cursor = '';
         if (hoveredSchemeId) {
-          map.current!.setFeatureState(
-            { source: 'schemes-polygons', id: hoveredSchemeId },
-            { hover: false }
-          );
-          map.current!.setFeatureState(
-            { source: 'schemes-icons', id: hoveredSchemeId },
-            { hover: false }
-          );
+          map.current!.setFeatureState({ source: 'schemes-polygons', id: hoveredSchemeId }, { hover: false });
+          map.current!.setFeatureState({ source: 'schemes-icons', id: hoveredSchemeId }, { hover: false });
         }
         setHoveredSchemeId(null);
       });
-
-      map.current.on('mouseenter', 'schemes-fill', (e) => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'pointer';
-        }
-
-        if (e.features && e.features.length > 0) {
-          const schemeId = e.features[0].properties?.id;
-          setHoveredSchemeId(schemeId);
-
-          if (schemeId) {
-            map.current!.setFeatureState(
-              { source: 'schemes-polygons', id: schemeId },
-              { hover: true }
-            );
-            map.current!.setFeatureState(
-              { source: 'schemes-icons', id: schemeId },
-              { hover: true }
-            );
-          }
-        }
-      });
-
-      map.current.on('mouseleave', 'schemes-fill', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = '';
-        }
-
-        if (hoveredSchemeId) {
-          map.current!.setFeatureState(
-            { source: 'schemes-polygons', id: hoveredSchemeId },
-            { hover: false }
-          );
-          map.current!.setFeatureState(
-            { source: 'schemes-icons', id: hoveredSchemeId },
-            { hover: false }
-          );
-        }
-        setHoveredSchemeId(null);
-      });
-
-      console.log('MapView: All layers in current style:', map.current.getStyle().layers);
-
     });
 
     return () => {
       map.current?.remove();
       map.current = null;
-      setMapLoaded(false);
     };
   }, []);
 
+  // --- Update map when filters or schemes change ---
   useEffect(() => {
     if (!mapLoaded || !map.current) return;
 
-    if (!map.current.isStyleLoaded()) {
-      console.log('MapView: Style not loaded yet, waiting...');
-      const checkStyle = () => {
-        if (map.current?.isStyleLoaded()) {
-          console.log('MapView: Style now loaded, updating schemes');
-          updateMapData();
-        }
-      };
-      map.current.once('styledata', checkStyle);
-      return;
+    const isEuropeSelected = filters?.region === 'Europe';
+
+    // Control Europe outline visibility
+    if (map.current.getLayer('highlight-europe')) {
+      map.current.setLayoutProperty(
+        'highlight-europe',
+        'visibility',
+        isEuropeSelected ? 'visible' : 'none'
+      );
     }
 
-    updateMapData();
-
-    function updateMapData() {
-      if (!map.current) return;
-
-      console.log('MapView: Updating map with filtered schemes count:', filteredSchemes.length);
-      console.log('MapView: First 3 schemes:', filteredSchemes.slice(0, 3));
-
-      const sortedSchemes = [...filteredSchemes].sort((a, b) => a.layer_order - b.layer_order);
-
-      const polygonFeatures = sortedSchemes.map(scheme => {
-        const geometry = ensurePolygonGeometry(scheme.geometry);
-
-        return {
-          type: 'Feature' as const,
-          id: scheme.id,
-          properties: {
-            id: scheme.id,
-            name: scheme.regulation_name,
-            scope_status: scheme.scope_status,
-            scope_region: scheme.scope_region
-          },
-          geometry: {
-            type: 'Polygon' as const,
-            coordinates: geometry.coords as number[][][]
-          }
-        };
-      });
-
-      const iconFeatures = sortedSchemes.map(scheme => {
-        const iconPosition = scheme.icon_position || calculateIconPosition(scheme.geometry);
-
-        return {
-          type: 'Feature' as const,
-          id: scheme.id,
-          properties: {
-            id: scheme.id,
-            name: scheme.regulation_name,
-            scope_status: scheme.scope_status
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: [iconPosition?.lng || 0, iconPosition?.lat || 0]
-          }
-        };
-      });
-
-      console.log('MapView: Updating polygon features count:', polygonFeatures.length);
-      console.log('MapView: Updating icon features count:', iconFeatures.length);
-
-      const polygonSource = map.current.getSource('schemes-polygons') as mapboxgl.GeoJSONSource;
-      const iconSource = map.current.getSource('schemes-icons') as mapboxgl.GeoJSONSource;
-
-      if (polygonSource && iconSource) {
-        polygonSource.setData({
-          type: 'FeatureCollection',
-          features: polygonFeatures
-        });
-
-        iconSource.setData({
-          type: 'FeatureCollection',
-          features: iconFeatures
-        });
-      } else {
-        console.warn('MapView: Sources not ready yet');
-      }
+    // Auto zoom when selecting Europe
+    if (isEuropeSelected) {
+      const bounds = getGeoBounds(europeGeo);
+      map.current.fitBounds(bounds, { padding: 20, duration: 1000 });
     }
-  }, [filteredSchemes, mapLoaded]);
 
+    // Use either Europe-filtered or all schemes
+    const visibleSchemes = isEuropeSelected
+      ? filteredSchemes.filter(s => s.scope_region?.includes('Europe'))
+      : filteredSchemes;
+
+    const sorted = [...visibleSchemes].sort((a, b) => a.layer_order - b.layer_order);
+
+   const polygonFeatures = sorted.map((s) => {
+  let geometry = ensurePolygonGeometry(s.geometry);
+
+  // Defensive check: ensure geometry has type & coordinates
+  if (!geometry || !geometry.type || !geometry.coordinates) {
+    console.warn('Invalid geometry for scheme', s.id);
+    geometry = { type: 'Polygon', coordinates: [] }; // fallback empty polygon
+  }
+
+  return {
+    type: 'Feature',
+    id: s.id,
+    properties: {
+      id: s.id,
+      name: s.regulation_name,
+      scope_status: s.scope_status,
+      scope_region: s.scope_region,
+    },
+    geometry,
+  };
+});
+
+
+   const iconFeatures = sorted.map((s) => {
+  let pos = s.icon_position || calculateIconPosition(s.geometry);
+
+  // Defensive check: pos must be a valid object with lat/lng
+  if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') {
+    console.warn('Invalid icon position for scheme', s.id);
+    pos = { lat: 0, lng: 0 }; // fallback
+  }
+
+  return {
+    type: 'Feature',
+    id: s.id,
+    properties: {
+      id: s.id,
+      name: s.regulation_name,
+      scope_status: s.scope_status,
+    },
+    geometry: { type: 'Point', coordinates: [pos.lng, pos.lat] },
+  };
+});
+
+    const polySource = map.current.getSource('schemes-polygons') as mapboxgl.GeoJSONSource;
+    const iconSource = map.current.getSource('schemes-icons') as mapboxgl.GeoJSONSource;
+
+    if (polySource && iconSource) {
+      polySource.setData({ type: 'FeatureCollection', features: polygonFeatures });
+      iconSource.setData({ type: 'FeatureCollection', features: iconFeatures });
+    }
+  }, [filteredSchemes, filters, mapLoaded]);
+
+  // --- Center on selected scheme ---
   useEffect(() => {
     if (!map.current?.isStyleLoaded() || !selectedSchemeId) return;
-
     const scheme = schemes.find(s => s.id === selectedSchemeId);
     if (!scheme) return;
-
-    const iconPosition = scheme.icon_position || calculateIconPosition(scheme.geometry);
-    if (!iconPosition) return;
-
+    const pos = scheme.icon_position || calculateIconPosition(scheme.geometry);
     map.current.flyTo({
-      center: [iconPosition.lng, iconPosition.lat],
+      center: [pos.lng, pos.lat],
       zoom: scheme.mode === 'port' ? 10 : 4,
       duration: 1500
     });
@@ -387,24 +295,13 @@ export const MapView = () => {
 
   if (mapError) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-brand-light">
-        <div className="max-w-md p-6 bg-white rounded-md shadow-sm border border-status-upcoming">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-6 h-6 text-status-upcoming flex-shrink-0 mt-0.5" />
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="p-6 bg-white rounded shadow">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-red-500" />
             <div>
-              <h3 className="font-semibold text-text-primary mb-2">Map Configuration Required</h3>
-              <p className="text-sm text-text-secondary mb-3">{mapError}</p>
-              <p className="text-sm text-text-secondary">
-                Get your free token at{' '}
-                <a
-                  href="https://account.mapbox.com/access-tokens/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-primary hover:text-brand-primary-dark underline"
-                >
-                  mapbox.com
-                </a>
-              </p>
+              <h3 className="font-semibold text-gray-800">Map Configuration Required</h3>
+              <p className="text-sm text-gray-600">{mapError}</p>
             </div>
           </div>
         </div>
