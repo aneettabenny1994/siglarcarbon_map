@@ -76,10 +76,10 @@ export const MapView = () => {
           'fill-color': [
             'match',
             ['get', 'scope_status'],
-            'Active', '#0E9F6E',
-            'Upcoming', '#D97706',
-            'Under discussion', '#F59E0B',
-            '#7A7A7A'
+            'Active', '#003f5c',
+            'Upcoming', '#2f4b7c',
+            'Under discussion', '#ffa600',
+            '#cccccc'
           ],
           'fill-opacity': [
             'case',
