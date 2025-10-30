@@ -49,6 +49,15 @@ export function ensurePolygonGeometry(geometry: SchemeGeometry): SchemeGeometry 
   }
 
   const coords = geometry.coords as number[];
+
+  if (!coords || coords.length < 2) {
+    console.error('Invalid point coordinates:', coords);
+    return {
+      type: 'polygon',
+      coords: [[[0, 0], [0, 0.1], [0.1, 0.1], [0.1, 0], [0, 0]]]
+    };
+  }
+
   const polygonCoords = createCityPolygon(coords[0], coords[1], 50);
 
   return {

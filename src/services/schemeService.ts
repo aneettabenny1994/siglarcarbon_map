@@ -1,6 +1,30 @@
 import { supabase } from '../lib/supabase';
 import { EmissionScheme } from '../types/scheme';
 
+function transformGeometry(dbScheme: any): EmissionScheme {
+  const geometry = dbScheme.geometry;
+
+  if (geometry.type === 'Polygon') {
+    return {
+      ...dbScheme,
+      geometry: {
+        type: 'polygon',
+        coords: geometry.coordinates
+      }
+    };
+  } else if (geometry.type === 'Point') {
+    return {
+      ...dbScheme,
+      geometry: {
+        type: 'point',
+        coords: geometry.coordinates
+      }
+    };
+  }
+
+  return dbScheme;
+}
+
 export const schemeService = {
   async getAllSchemes(): Promise<EmissionScheme[]> {
     const { data, error } = await supabase
@@ -13,7 +37,7 @@ export const schemeService = {
       throw error;
     }
 
-    return data as EmissionScheme[];
+    return data ? data.map(transformGeometry) : [];
   },
 
   async getSchemeById(id: string): Promise<EmissionScheme | null> {
@@ -28,7 +52,7 @@ export const schemeService = {
       throw error;
     }
 
-    return data as EmissionScheme | null;
+    return data ? transformGeometry(data) : null;
   },
 
   async createScheme(scheme: Omit<EmissionScheme, 'created_at' | 'updated_at'>): Promise<EmissionScheme> {
@@ -43,7 +67,7 @@ export const schemeService = {
       throw error;
     }
 
-    return data as EmissionScheme;
+    return transformGeometry(data);
   },
 
   async updateScheme(id: string, updates: Partial<EmissionScheme>): Promise<EmissionScheme> {
@@ -59,7 +83,7 @@ export const schemeService = {
       throw error;
     }
 
-    return data as EmissionScheme;
+    return transformGeometry(data);
   },
 
   async deleteScheme(id: string): Promise<void> {
