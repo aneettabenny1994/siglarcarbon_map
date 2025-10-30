@@ -107,7 +107,7 @@ export const MapView = () => {
             'Upcoming', '#2f4b7c',
             'Under discussion', '#ffa600',
             '#4F4F4F'
-          ]
+          ],
           'line-width': [
             'case',
             ['boolean', ['feature-state', 'hover'], false],
