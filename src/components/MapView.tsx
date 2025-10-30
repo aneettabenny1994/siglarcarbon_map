@@ -273,6 +273,9 @@ export const MapView = () => {
         }
         setHoveredSchemeId(null);
       });
+
+      console.log('MapView: All layers in current style:', map.current.getStyle().layers);
+
     });
 
     return () => {
