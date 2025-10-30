@@ -38,7 +38,7 @@ export const MapView = () => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/siglarcarbon/ckpdt727w2zjk17nz2vsppyh6',
+      style: 'mapbox://styles/mapbox/light-v11',
       center: [15, 30],
       zoom: 2,
       projection: 'mercator' as any
