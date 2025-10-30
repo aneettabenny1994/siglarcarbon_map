@@ -1,0 +1,214 @@
+[
+  {
+    "id": "eu-ets-maritime",
+    "name": "EU ETS Maritime",
+    "region": "Europe",
+    "mode": "area",
+    "status": "Active",
+    "start_year": 2024,
+    "article_url": "https://siglarcarbon.com/eu-ets-guide",
+    "coverage": {
+      "legs": ["Intra-EU", "50% of extra-EU voyages"],
+      "gases": ["CO2", "CH4", "N2O"],
+      "scope": "Shipping companies with vessels >5000 GT",
+      "vessel_types": ["Container", "Bulk", "Tanker", "Passenger"]
+    },
+    "costs": {
+      "type": "Allowance purchase",
+      "units": "EUR per tonne CO2",
+      "notes": "Market-based pricing, ~€80-90/tonne in 2024"
+    },
+    "compliance": {
+      "reporting": ["Annual emissions report", "Verified by accredited body"],
+      "frequency": "Annual",
+      "refs": [
+        {"label": "EU ETS Directive", "url": "https://eur-lex.europa.eu"},
+        {"label": "Verification guide", "url": "https://ec.europa.eu"}
+      ]
+    },
+    "geometry": {
+      "type": "polygon",
+      "coords": [[[-10, 35], [40, 35], [40, 71], [-10, 71], [-10, 35]]]
+    }
+  },
+  {
+    "id": "fueleu-maritime",
+    "name": "FuelEU Maritime (EU)",
+    "region": "Europe",
+    "mode": "area",
+    "status": "Active",
+    "start_year": 2025,
+    "article_url": "https://siglarcarbon.com/fueleu-maritime",
+    "coverage": {
+      "legs": ["EU port calls"],
+      "gases": ["Well-to-wake GHG intensity"],
+      "scope": "Ships >5000 GT calling at EU ports",
+      "vessel_types": ["All commercial vessels"]
+    },
+    "costs": {
+      "type": "Penalty for non-compliance",
+      "units": "EUR per tonne CO2",
+      "notes": "Intensity penalties per gCO2e above target."
+    },
+    "compliance": {
+      "reporting": ["GHG intensity report", "Fuel consumption data"],
+      "frequency": "Annual",
+      "refs": [
+        {"label": "FuelEU Regulation", "url": "https://ec.europa.eu"}
+      ]
+    },
+    "geometry": {
+      "type": "polygon",
+      "coords": [[[-10, 35], [40, 35], [40, 71], [-10, 71], [-10, 35]]]
+    }
+  },
+  {
+    "id": "imo-cii",
+    "name": "IMO CII (Carbon Intensity Indicator)",
+    "region": "Global",
+    "mode": "area",
+    "status": "Active",
+    "start_year": 2023,
+    "coverage": {
+      "legs": ["International voyages"],
+      "gases": ["CO2"],
+      "scope": "Ships >5000 GT",
+      "vessel_types": ["All commercial vessels"]
+    },
+    "costs": {
+      "type": "Operational restrictions",
+      "notes": "Rating system A-E, poor ratings may require corrective action plan"
+    },
+    "compliance": {
+      "reporting": ["Annual CII rating", "Ship Energy Efficiency Management Plan"],
+      "frequency": "Annual",
+      "refs": [
+        {"label": "IMO MARPOL Annex VI", "url": "https://www.imo.org"}
+      ]
+    },
+    "geometry": {
+      "type": "polygon",
+      "coords": [[[-180, -60], [180, -60], [180, 75], [-180, 75], [-180, -60]]]
+    }
+  },
+  {
+    "id": "djibouti-carbon-levy",
+    "name": "Djibouti Carbon Levy",
+    "region": "Africa",
+    "mode": "port",
+    "status": "Upcoming",
+    "start_year": 2026,
+    "coverage": {
+      "legs": ["Port calls at Djibouti"],
+      "gases": ["CO2"],
+      "vessel_types": ["Container", "Bulk"]
+    },
+    "costs": {
+      "type": "Port levy",
+      "units": "USD per tonne CO2",
+      "notes": "Proposed $10-15 per tonne"
+    },
+    "geometry": {
+      "type": "point",
+      "coords": [43.145647, 11.588333]
+    }
+  },
+  {
+    "id": "gabon-carbon-levy",
+    "name": "Gabon Carbon Levy",
+    "region": "Africa",
+    "mode": "port",
+    "status": "Under discussion",
+    "start_year": 2027,
+    "coverage": {
+      "legs": ["Port calls at Libreville"],
+      "gases": ["CO2"],
+      "vessel_types": ["Tanker", "Bulk"]
+    },
+    "costs": {
+      "type": "Port fee",
+      "notes": "Under consultation"
+    },
+    "geometry": {
+      "type": "point",
+      "coords": [9.4673, 0.4162]
+    }
+  },
+  {
+    "id": "singapore-port-emissions",
+    "name": "Singapore Port Emissions Fee",
+    "region": "Asia",
+    "mode": "port",
+    "status": "Active",
+    "start_year": 2025,
+    "article_url": "https://siglarcarbon.com/singapore-port-fee",
+    "coverage": {
+      "legs": ["Port calls at Singapore"],
+      "gases": ["CO2", "SOx", "NOx"],
+      "vessel_types": ["All commercial vessels"]
+    },
+    "costs": {
+      "type": "Port levy",
+      "units": "SGD per vessel call",
+      "notes": "Tiered based on vessel size and emissions"
+    },
+    "compliance": {
+      "reporting": ["Emissions declaration at port call"],
+      "frequency": "Per call"
+    },
+    "geometry": {
+      "type": "point",
+      "coords": [103.8198, 1.3521]
+    }
+  },
+  {
+    "id": "rotterdam-environmental-fee",
+    "name": "Rotterdam Environmental Fee",
+    "region": "Europe",
+    "mode": "port",
+    "status": "Active",
+    "start_year": 2025,
+    "coverage": {
+      "legs": ["Port calls at Rotterdam"],
+      "gases": ["CO2", "NOx", "SOx"],
+      "vessel_types": ["All commercial vessels"]
+    },
+    "costs": {
+      "type": "Port discount/surcharge",
+      "notes": "ESI-based incentive program"
+    },
+    "geometry": {
+      "type": "point",
+      "coords": [4.4777, 51.9244]
+    }
+  },
+  {
+    "id": "california-at-berth",
+    "name": "California At-Berth Regulation",
+    "region": "North America",
+    "mode": "port",
+    "status": "Active",
+    "start_year": 2023,
+    "article_url": "https://siglarcarbon.com/california-at-berth",
+    "coverage": {
+      "legs": ["Port calls at CA ports (LA, Long Beach, Oakland, etc.)"],
+      "gases": ["NOx", "PM2.5"],
+      "vessel_types": ["Container", "Tanker", "Cruise"]
+    },
+    "costs": {
+      "type": "Shore power or emission control",
+      "notes": "Must reduce at-berth emissions by 70-80%"
+    },
+    "compliance": {
+      "reporting": ["Quarterly emission reports"],
+      "frequency": "Quarterly",
+      "refs": [
+        {"label": "CARB At-Berth Rule", "url": "https://ww2.arb.ca.gov"}
+      ]
+    },
+    "geometry": {
+      "type": "point",
+      "coords": [-118.2437, 33.7701]
+    }
+  }
+]

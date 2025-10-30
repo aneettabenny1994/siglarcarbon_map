@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Lato', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    color: #1A1A1A;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Freight Sans Pro', 'Lato', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+}
+
+.mapboxgl-popup-content {
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  font-family: 'Lato', system-ui, -apple-system, sans-serif;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: white !important;
+}
