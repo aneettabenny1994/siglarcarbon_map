@@ -7,14 +7,19 @@ import { AlertCircle } from 'lucide-react';
 import { SchemeTooltip } from './SchemeTooltip';
 import { EmissionScheme } from '../types/scheme';
 import { ensurePolygonGeometry, calculateIconPosition } from '../utils/schemeGeometry';
+
+// --- Region imports ---
 import europeGeo from '../../europe.json';
 import asiaGeo from '../../asia.json';
 import africaGeo from '../../africa.json';
+import northAmericaGeo from '../../north_america.json';
+import southAmericaGeo from '../../south_america.json';
+import oceaniaGeo from '../../oceania.json';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 if (MAPBOX_TOKEN) mapboxgl.accessToken = MAPBOX_TOKEN;
 
-// Utility to get bounds for Polygon or MultiPolygon
+// --- Utility: Get bounding box for region ---
 function getBounds(geo: any): [[number, number], [number, number]] {
   const coords = geo.features.flatMap((f: any) => {
     const geom = f.geometry;
@@ -39,10 +44,10 @@ export const MapView = () => {
   const [tooltipSchemes, setTooltipSchemes] = useState<EmissionScheme[] | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const { schemes, filters, selectScheme, selectedSchemeId } = useSchemeStore();
-
+  
   const filteredSchemes = useMemo(() => filterSchemes(schemes, filters), [schemes, filters]);
 
-  // Initialize map
+  // --- Initialize Map ---
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
     if (!MAPBOX_TOKEN) {
@@ -53,8 +58,8 @@ export const MapView = () => {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
-      center: [20, 10],
-      zoom: 2,
+      center: [0, 20],
+      zoom: 1.8,
       projection: 'mercator' as any
     });
 
@@ -64,60 +69,118 @@ export const MapView = () => {
       if (!map.current) return;
       setMapLoaded(true);
 
-      // --- Region Sources ---
-      map.current.addSource('europe', { type: 'geojson', data: europeGeo });
-      map.current.addSource('asia', { type: 'geojson', data: asiaGeo });
-      map.current.addSource('africa', { type: 'geojson', data: africaGeo }); // 👈 Africa added
+      // --- Region sources ---
+      const regions = [
+        { key: 'europe', data: europeGeo, color: '#003f5c' },
+        { key: 'asia', data: asiaGeo, color: '#28a745' },
+        { key: 'africa', data: africaGeo, color: '#0077b6' },
+        { key: 'northAmerica', data: northAmericaGeo, color: '#9c27b0' },
+        { key: 'southAmerica', data: southAmericaGeo, color: '#ff5722' },
+        { key: 'oceania', data: oceaniaGeo, color: '#fdd835' },
+      ];
 
-      // --- Region Layers ---
-      map.current.addLayer({ id: 'europe-fill', type: 'fill', source: 'europe', paint: { 'fill-color': '#003f5c', 'fill-opacity': 0.1 }, layout: { visibility: 'none' } });
-      map.current.addLayer({ id: 'europe-line', type: 'line', source: 'europe', paint: { 'line-color': '#003f5c', 'line-width': 2 }, layout: { visibility: 'none' } });
-
-      map.current.addLayer({ id: 'asia-fill', type: 'fill', source: 'asia', paint: { 'fill-color': '#28a745', 'fill-opacity': 0.1 }, layout: { visibility: 'none' } });
-      map.current.addLayer({ id: 'asia-line', type: 'line', source: 'asia', paint: { 'line-color': '#28a745', 'line-width': 2 }, layout: { visibility: 'none' } });
-
-      map.current.addLayer({ id: 'africa-fill', type: 'fill', source: 'africa', paint: { 'fill-color': '#0077b6', 'fill-opacity': 0.12 }, layout: { visibility: 'none' } }); // 👈 blue-green fill
-      map.current.addLayer({ id: 'africa-line', type: 'line', source: 'africa', paint: { 'line-color': '#0077b6', 'line-width': 2 }, layout: { visibility: 'none' } });
+      regions.forEach(r => {
+        map.current!.addSource(r.key, { type: 'geojson', data: r.data });
+        map.current!.addLayer({
+          id: `${r.key}-fill`,
+          type: 'fill',
+          source: r.key,
+          paint: { 'fill-color': r.color, 'fill-opacity': 0.1 },
+          layout: { visibility: 'none' }
+        });
+        map.current!.addLayer({
+          id: `${r.key}-line`,
+          type: 'line',
+          source: r.key,
+          paint: { 'line-color': r.color, 'line-width': 2 },
+          layout: { visibility: 'none' }
+        });
+      });
 
       // --- Schemes ---
-      map.current.addSource('schemes-polygons', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.current.addSource('schemes-icons', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.current.addSource('schemes-polygons', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      map.current.addSource('schemes-icons', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
 
       map.current.addLayer({
         id: 'schemes-fill',
         type: 'fill',
         source: 'schemes-polygons',
         paint: {
-          'fill-color': ['match', ['get', 'scope_status'], 'Active', '#003f5c', 'Upcoming', '#2f4b7c', 'Under discussion', '#ffa600', '#cccccc'],
-          'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.7, 0.3]
+          'fill-color': [
+            'match',
+            ['get', 'scope_status'],
+            'Active', '#003f5c',
+            'Upcoming', '#2f4b7c',
+            'Under discussion', '#ffa600',
+            '#cccccc'
+          ],
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.7,
+            0.3
+          ]
         }
       });
+
       map.current.addLayer({
         id: 'schemes-outline',
         type: 'line',
         source: 'schemes-polygons',
-        paint: { 'line-color': '#333', 'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 3, 1.5] }
+        paint: {
+          'line-color': '#333',
+          'line-width': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            3,
+            1.5
+          ]
+        }
       });
+
       map.current.addLayer({
         id: 'schemes-icons',
         type: 'circle',
         source: 'schemes-icons',
         paint: {
-          'circle-color': ['match', ['get', 'scope_status'], 'Active', '#003f5c', 'Upcoming', '#2f4b7c', 'Under discussion', '#ffa600', '#cccccc'],
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 6, 10, 10, 15, 14],
+          'circle-color': [
+            'match',
+            ['get', 'scope_status'],
+            'Active', '#003f5c',
+            'Upcoming', '#2f4b7c',
+            'Under discussion', '#ffa600',
+            '#cccccc'
+          ],
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            2, 6,
+            10, 10,
+            15, 14
+          ],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#fff'
         }
       });
 
-      // Hover + click
+      // --- Hover & Click events ---
       map.current.on('click', 'schemes-icons', (e) => {
         if (!e.features) return;
         const ids = e.features.map(f => f.properties?.id);
-        const clickedSchemes = ids.map(id => useSchemeStore.getState().schemes.find(s => s.id === id)).filter((s): s is EmissionScheme => !!s);
+        const clickedSchemes = ids
+          .map(id => useSchemeStore.getState().schemes.find(s => s.id === id))
+          .filter((s): s is EmissionScheme => !!s);
         setTooltipSchemes(clickedSchemes);
         setTooltipPosition({ x: e.point.x, y: e.point.y });
       });
+
       map.current.on('mouseenter', 'schemes-icons', (e) => {
         map.current!.getCanvas().style.cursor = 'pointer';
         const id = e.features?.[0]?.properties?.id;
@@ -141,26 +204,36 @@ export const MapView = () => {
     return () => { map.current?.remove(); map.current = null; };
   }, []);
 
-  // --- Update on filters ---
+  // --- React to region filter changes ---
   useEffect(() => {
     if (!mapLoaded || !map.current) return;
 
     const selectedRegions = Array.isArray(filters?.regions) ? filters.regions : [];
 
-    // Show/hide regions
-    map.current.setLayoutProperty('europe-fill', 'visibility', selectedRegions.includes('Europe') ? 'visible' : 'none');
-    map.current.setLayoutProperty('europe-line', 'visibility', selectedRegions.includes('Europe') ? 'visible' : 'none');
-    map.current.setLayoutProperty('asia-fill', 'visibility', selectedRegions.includes('Asia') ? 'visible' : 'none');
-    map.current.setLayoutProperty('asia-line', 'visibility', selectedRegions.includes('Asia') ? 'visible' : 'none');
-    map.current.setLayoutProperty('africa-fill', 'visibility', selectedRegions.includes('Africa') ? 'visible' : 'none');
-    map.current.setLayoutProperty('africa-line', 'visibility', selectedRegions.includes('Africa') ? 'visible' : 'none');
+    const regionMap = {
+      Europe: { key: 'europe', data: europeGeo },
+      Asia: { key: 'asia', data: asiaGeo },
+      Africa: { key: 'africa', data: africaGeo },
+      'North America': { key: 'northAmerica', data: northAmericaGeo },
+      'South America': { key: 'southAmerica', data: southAmericaGeo },
+      Oceania: { key: 'oceania', data: oceaniaGeo },
+    };
 
-    // Fit to the first selected region
-    if (selectedRegions.includes('Europe')) map.current.fitBounds(getBounds(europeGeo), { padding: 40, duration: 1000, maxZoom: 6 });
-    else if (selectedRegions.includes('Asia')) map.current.fitBounds(getBounds(asiaGeo), { padding: 40, duration: 1000, maxZoom: 6 });
-    else if (selectedRegions.includes('Africa')) map.current.fitBounds(getBounds(africaGeo), { padding: 40, duration: 1000, maxZoom: 6 });
+    // Show or hide each region
+    Object.entries(regionMap).forEach(([regionName, { key }]) => {
+      const visible = selectedRegions.includes(regionName);
+      map.current!.setLayoutProperty(`${key}-fill`, 'visibility', visible ? 'visible' : 'none');
+      map.current!.setLayoutProperty(`${key}-line`, 'visibility', visible ? 'visible' : 'none');
+    });
 
-    // Filter schemes
+    // Fit to first selected region
+    const regionToFit = selectedRegions.find(r => regionMap[r]);
+    if (regionToFit) {
+      const { data } = regionMap[regionToFit];
+      map.current.fitBounds(getBounds(data), { padding: 40, duration: 1000, maxZoom: 6 });
+    }
+
+    // Update visible schemes
     const visibleSchemes = filteredSchemes.filter(s => {
       if (!s.scope_region) return false;
       const regions = Array.isArray(s.scope_region) ? s.scope_region : [s.scope_region];
@@ -172,7 +245,12 @@ export const MapView = () => {
     const polygonFeatures = sorted.map(s => ({
       type: 'Feature',
       id: s.id,
-      properties: { id: s.id, name: s.regulation_name, scope_status: s.scope_status, scope_region: s.scope_region },
+      properties: {
+        id: s.id,
+        name: s.regulation_name,
+        scope_status: s.scope_status,
+        scope_region: s.scope_region
+      },
       geometry: ensurePolygonGeometry(s.geometry)
     }));
 
